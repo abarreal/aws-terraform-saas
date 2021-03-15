@@ -39,13 +39,13 @@ variable "igw_id" {
   description = "The ID of the Internet gateway of the VPC."
 }
 
-variable "pub_subnet_cidr" {
+variable "public_subnet_cidr" {
   type        = string
   description = "The CIDR range for the public subnet."
   default     = "10.0.0.0/24"
 }
 
-variable "nat_subnet_cidr" {
+variable "private_subnet_cidr" {
   type        = string
   description = "The CIDR range for the private subnet."
   default     = "10.0.1.0/24"

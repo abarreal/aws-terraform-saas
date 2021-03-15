@@ -22,6 +22,9 @@ locals {
   igw_tags = {
     Name = "${var.workload}-InternetGateway"
   }
+  default_sg_tags = {
+    Name = "${var.workload}-Default"
+  }
   
   # Define the name for the CodeBuild project that will handle the testing
   # stage of the CI/CD pipeline.
@@ -36,11 +39,11 @@ locals {
   # Define the CIDR ranges for the subnets.
   production_cidr_ranges = {
     pub_subnet = cidrsubnet(aws_vpc.main.cidr_block, 8, 0)
-    nat_subnet = cidrsubnet(aws_vpc.main.cidr_block, 8, 1)
+    prv_subnet = cidrsubnet(aws_vpc.main.cidr_block, 8, 1)
   }
   stage_cidr_ranges = {
     pub_subnet = cidrsubnet(aws_vpc.main.cidr_block, 8, 2)
-    nat_subnet = cidrsubnet(aws_vpc.main.cidr_block, 8, 3)
+    prv_subnet = cidrsubnet(aws_vpc.main.cidr_block, 8, 3)
   }
 }
 
@@ -71,6 +74,12 @@ resource "aws_vpc" "main" {
   tags                 = merge(local.common_tags, local.vpc_tags)
 }
 
+# Define a closed default security group.
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.main.id
+  tags   = merge(local.default_sg_tags, local.common_tags)
+}
+
 # Assign an Internet gateway to the VPC.
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
@@ -80,27 +89,27 @@ resource "aws_internet_gateway" "igw" {
 # Instantiate partitions (isolated public-private subnet pairs, for our 
 # purposes) for a staging environment and a productive environment.
 module "production_partition" {
-  source          = "./modules/partition"
-  workload        = var.workload
-  aws_region      = var.aws_region
-  partition_name  = "Production"
-  vpc_id          = aws_vpc.main.id
-  vpc_cidr        = aws_vpc.main.cidr_block
-  igw_id          = aws_internet_gateway.igw.id
-  pub_subnet_cidr = local.production_cidr_ranges.pub_subnet
-  nat_subnet_cidr = local.production_cidr_ranges.nat_subnet
+  source              = "./modules/partition"
+  workload            = var.workload
+  aws_region          = var.aws_region
+  partition_name      = "Production"
+  vpc_id              = aws_vpc.main.id
+  vpc_cidr            = aws_vpc.main.cidr_block
+  igw_id              = aws_internet_gateway.igw.id
+  public_subnet_cidr  = local.production_cidr_ranges.pub_subnet
+  private_subnet_cidr = local.production_cidr_ranges.prv_subnet
 }
 
 module "staging_partition" {
-  source          = "./modules/partition"
-  workload        = var.workload
-  aws_region      = var.aws_region
-  partition_name  = "Stage"
-  vpc_id          = aws_vpc.main.id
-  vpc_cidr        = aws_vpc.main.cidr_block
-  igw_id          = aws_internet_gateway.igw.id
-  pub_subnet_cidr = local.stage_cidr_ranges.pub_subnet
-  nat_subnet_cidr = local.stage_cidr_ranges.nat_subnet
+  source              = "./modules/partition"
+  workload            = var.workload
+  aws_region          = var.aws_region
+  partition_name      = "Stage"
+  vpc_id              = aws_vpc.main.id
+  vpc_cidr            = aws_vpc.main.cidr_block
+  igw_id              = aws_internet_gateway.igw.id
+  public_subnet_cidr  = local.stage_cidr_ranges.pub_subnet
+  private_subnet_cidr = local.stage_cidr_ranges.prv_subnet
 }
 
 #==============================================================================
